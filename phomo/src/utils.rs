@@ -96,6 +96,14 @@ fn dir_entry_to_image(entry: std::io::Result<DirEntry>) -> Option<RgbImage> {
     }
 }
 
+/// Create an iterator that iterates through all the images in a directory.
+///
+/// # Arguments
+/// - `tile_dir`: The path to the directory containing the tile images.
+///
+/// # Errors
+/// - An error occurred while reading the directory.
+/// - Failed to open the image.
 #[cfg(not(feature = "parallel"))]
 pub fn get_image_iter_from_dir<P: AsRef<Path>>(tile_dir: P) -> Result<FilterMap<ReadDir, impl Fn(std::io::Result<DirEntry>) -> Option<RgbImage>>, PhomoError> {
     Ok(tile_dir
@@ -105,6 +113,14 @@ pub fn get_image_iter_from_dir<P: AsRef<Path>>(tile_dir: P) -> Result<FilterMap<
     )
 }
 
+/// Create an iterator that iterates through all the images in a directory.
+///
+/// # Arguments
+/// - `tile_dir`: The path to the directory containing the tile images.
+///
+/// # Errors
+/// - An error occurred while reading the directory.
+/// - Failed to open the image.
 #[cfg(feature = "parallel")]
 pub fn get_image_iter_from_dir<P: AsRef<Path>>(tile_dir: P) -> Result<FilterMap<IterBridge<ReadDir>, impl Fn(std::io::Result<DirEntry>) -> Option<RgbImage>>, PhomoError> {
     Ok(tile_dir
@@ -115,12 +131,48 @@ pub fn get_image_iter_from_dir<P: AsRef<Path>>(tile_dir: P) -> Result<FilterMap<
     )
 }
 
+/// Read all images in a directory and returns them in a vector.
+///
+/// # Arguments
+/// - `tile_dir`: The path to the directory containing the tile images.
+///
+/// # Errors
+/// - An error occurred while reading the directory.
+/// - Failed to open the image.
 #[cfg(feature = "parallel")]
 pub fn read_images_from_dir<P: AsRef<Path>>(tile_dir: P) -> Result<Vec<RgbImage>, PhomoError> {
     get_image_iter_from_dir(tile_dir)
         .map(ParallelIterator::collect)
 }
 
+/// Read all images in a directory, cropped to the `width` and `height` and return them in a
+/// vector.
+///
+/// # Arguments
+/// - `tile_dir`: The path to the directory containing the tile images.
+/// - `width`: The width to crop to.
+/// - `height`: The height to crop to.
+#[cfg(feature = "parallel")]
+pub fn read_images_from_dir_cropped<P: AsRef<Path>>(
+    tile_dir: P,
+    width: u32,
+    height: u32,
+) -> Result<Vec<RgbImage>, PhomoError> {
+    get_image_iter_from_dir(tile_dir)
+        .map(|iter|
+            iter
+                .map(|img| crop_cover(&img, width, height, image::imageops::FilterType::Nearest))
+                .collect::<Vec<_>>()
+        )
+}
+
+/// Read all images in a directory, resized to the `width` and `height` and returns them in a vector.
+///
+/// # Arguments
+/// - `tile_dir`: The path to the directory containing the tile images.
+/// - `width`: The width to resize to.
+/// - `height`: The height to resize to.
+/// - `filter`: The [`image::imageops::FilterType`] to use for resizing.
 #[cfg(feature = "parallel")]
 pub fn read_images_from_dir_resized<P: AsRef<Path>>(
     tile_dir: P,
@@ -133,20 +185,6 @@ pub fn read_images_from_dir_resized<P: AsRef<Path>>(
             iter
             .map(|img| image::imageops::resize(&img, width, height, filter))
             .collect::<Vec<_>>()
-        )
-}
-
-#[cfg(feature = "parallel")]
-pub fn read_images_from_dir_cropped<P: AsRef<Path>>(
-    tile_dir: P,
-    width: u32,
-    height: u32,
-) -> Result<Vec<RgbImage>, PhomoError> {
-    get_image_iter_from_dir(tile_dir)
-        .map(|iter|
-            iter
-                .map(|img| crop_cover(&img, width, height, image::imageops::FilterType::Nearest))
-                .collect::<Vec<_>>()
         )
 }
 
